@@ -1,0 +1,6 @@
+{{- if .Values.server.extraTemplates }}
+{{- range .Values.server.extraTemplates }}
+---
+{{ tpl . $ -}}
+{{- end }}
+{{- end }}
