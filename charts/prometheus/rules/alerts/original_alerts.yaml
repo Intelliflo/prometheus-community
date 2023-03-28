@@ -1,0 +1,440 @@
+groups:
+- name: NODE_ALERTS
+  rules:
+  - alert: "Node CPU usage {{ $.Values.server.env_name }}"
+    expr: (100 - (avg by (ec2_instance) (rate(windows_cpu_time_total{job="WindowsWorkerNodes",mode="idle"}[5m])) * 100)) > 32
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "node-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/windows_nodes.md"
+      summary: "Windows node {{ `{{ $labels.ec2_instance `}} }} is experiencing high CPU usage"
+  - alert: "Node CPU usage {{ $.Values.server.env_name}}"
+    expr: (100 - (avg by (ec2_instance) (rate(windows_cpu_time_total{job="WindowsWorkerNodes",mode="idle"}[5m])) * 100)) > 32
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "node-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/windows_nodes.md"
+      summary: "Windows node {{ `{{ $labels.ec2_instance `}} }} is experiencing high CPU usage"
+- name: ScheduledScaler
+  rules:
+  - alert: "Schedule scaler loop stopped {{ $.Values.server.env_name}}"
+    expr: count by (app) (changes(schedule_scaler_loop_counter_total{app="kube-schedule-scaler"}[5m]) < 3 or absent(schedule_scaler_loop_counter_total{app="kube-schedule-scaler"})) > 0
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "kube-schedule-scaler-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/kube-schedule-scaler/blob/master/README.md"
+      summary: "Scheduled scaler main loop has stopped reporting"
+  - alert: "Schedule scaler loop stopped {{ $.Values.server.env_name}}"
+    expr: count by (app) (changes(schedule_scaler_loop_counter_total{app="kube-schedule-scaler"}[5m]) < 3 or absent(schedule_scaler_loop_counter_total{app="kube-schedule-scaler"})) > 0
+    for: 3m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "kube-schedule-scaler-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/kube-schedule-scaler/blob/master/README.md"
+      summary: "Scheduled scaler main loop has stopped reporting"
+- name: MSSQL_Alerts
+  rules:
+  - alert: "High Disk IOPS {{ $.Values.server.env_name}}"
+    expr: (rate(windows_logical_disk_reads_total{job="MSSQL"}[2m]) + rate(windows_logical_disk_writes_total{job="MSSQL"}[2m])) > 12000
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high disk IOPS Server: {{ `{{ $labels.ec2_tag_Name `}} }} Volume: {{ `{{ $labels.volume `}} }}"
+  - alert: "High Disk IOPS {{ $.Values.server.env_name}}"
+    expr: (rate(windows_logical_disk_reads_total{job="MSSQL"}[2m]) + rate(windows_logical_disk_writes_total{job="MSSQL"}[2m])) > 12000
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high disk IOPS Server: {{ `{{ $labels.ec2_tag_Name `}} }} Volume: {{ `{{ $labels.volume `}} }}"
+  - alert: "SQL CPU usage {{ $.Values.server.env_name}}"
+    expr: >
+      (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-gb-.*"}[2m])) * 100)) > 40
+      or
+      (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-us-.*-i.*"}[2m])) * 100)) > 35
+      or
+      (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-us-.*-pi.*"}[2m])) * 100)) > 60
+      or
+      (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-au-.*"}[2m])) * 100)) > 35
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high CPU usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "SQL CPU usage {{ $.Values.server.env_name}}"
+    expr: >
+      (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-gb-.*"}[2m])) * 100)) > 40
+      or
+      (
+        (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-us-.*-i.*"}[2m])) * 100)) > 40
+        and on()
+        (
+            hour(vector(time()))  >= 12
+        )
+      )
+      or
+      (
+        (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-us-.*-i.*"}[2m])) * 100)) > 60
+        and on()
+        (
+            hour(vector(time()))  < 12
+        )
+      )
+      or
+      (
+        (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-us-.*-pi.*"}[2m])) * 100)) > 60
+        and on()
+        (
+            hour(vector(time()))  < 04
+            OR
+            hour(vector(time()))  > 11
+        )
+      )
+      or
+      (100 - (avg by (ec2_tag_Name) (rate(windows_cpu_time_total{job="MSSQL", mode="idle", ec2_tag_Name=~"prd-au-.*"}[2m])) * 100)) > 35
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high CPU usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "SQL Blocking rate {{ $.Values.server.env_name}}"
+    expr: >
+      sum by (ec2_tag_Name) (windows_mssql_genstats_blocked_processes{ec2_tag_Name=~"prd-gb-.*"}) > 20
+      or
+      sum by (ec2_tag_Name) (windows_mssql_genstats_blocked_processes{ec2_tag_Name=~"prd-us-.*"}) > 20
+      or
+      sum by (ec2_tag_Name) (windows_mssql_genstats_blocked_processes{ec2_tag_Name=~"prd-au-.*"}) > 20
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high SQL process blocking. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "SQL Blocking rate {{ $.Values.server.env_name}}"
+    expr: >
+      sum by (ec2_tag_Name) (windows_mssql_genstats_blocked_processes{ec2_tag_Name=~"prd-gb-.*"}) > 20
+      or
+      (
+        sum by (ec2_tag_Name) (windows_mssql_genstats_blocked_processes{ec2_tag_Name=~"prd-us-.*"}) > 20
+        and on()
+        (
+            hour(vector(time()))  < 04
+            OR
+            hour(vector(time()))  > 11
+        )
+      )
+      or
+      sum by (ec2_tag_Name) (windows_mssql_genstats_blocked_processes{ec2_tag_Name=~"prd-au-.*"}) > 20
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high SQL process blocking. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "SQL Log Usage {{ $.Values.server.env_name}}"
+    expr: >
+      (
+        windows_mssql_databases_log_used_percent{database="reports"} > 70
+        or
+        windows_mssql_databases_log_used_percent{ec2_tag_Name!="tableau01", database!="salesforce", database!="reports"} > 70
+        or
+        windows_mssql_databases_log_used_percent{ec2_tag_Name="tableau01", database="salesforce"} > 97
+      )
+      and on()
+      (
+          hour(vector(time()))  < 01
+          OR
+          hour(vector(time()))  > 05
+      )
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server log file usage is high. Server: {{ `{{ $labels.ec2_tag_Name `}} }} Database: {{ `{{ $labels.database `}} }}"
+  - alert: "SQL Log Usage {{ $.Values.server.env_name}}"
+    expr: >
+      (
+        windows_mssql_databases_log_used_percent{database="reports"} > 70
+        or
+        windows_mssql_databases_log_used_percent{ec2_tag_Name!="tableau01", database!="salesforce", database!="reports"} > 70
+        or
+        windows_mssql_databases_log_used_percent{ec2_tag_Name="tableau01", database="salesforce"} > 97
+      )
+      and on()
+      (
+          hour(vector(time()))  < 01
+          OR
+          hour(vector(time()))  > 05
+      )
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "sql-server-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/sql-server.md"
+      summary: "sql-server is experiencing high disk IOPS Server: {{ `{{ $labels.ec2_tag_Name `}} }} Database: {{ `{{ $labels.database `}} }}"
+- name: LogRate
+  rules:
+  - alert: "High error log rate {{ $.Values.server.env_name}}"
+    expr: >
+      sum by (kube_app) (rate(container_messages_total{kube_app="monolith-campaign",level="error"}[10m])) > 0
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app="intelliflo-pfp",level="error"}[10m])) > 0.5
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app!~"monolith-valuation|monolith-transformengine|monolith-storage|jobserver-io|microservice-quicksight",level="error"}[5m])) > 3
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"monolith-transformengine",level="error"}[5m])) > 27
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"monolith-valuation",level="error"}[5m])) > 10
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"monolith-storage",level="error"}[5m])) > 6.5
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"jobserver-io",level="error"}[5m])) > 8
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.kube_app `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kube_app `}} }}.md"
+      summary: "{{ `{{ $labels.kube_app `}} }} Containers are experiencing high error log rate"
+  - alert: "High error log rate {{ $.Values.server.env_name}}"
+    expr: >
+      sum by (kube_app) (rate(container_messages_total{kube_app="monolith-campaign",level="error"}[10m])) > 0
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app="intelliflo-pfp",level="error"}[10m])) > 0.5
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app!~"monolith-valuation|monolith-transformengine|monolith-storage|jobserver-io|microservice-quicksight",level="error"}[5m])) > 3
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"monolith-transformengine",level="error"}[5m])) > 27
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"monolith-valuation",level="error"}[5m])) > 10
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"monolith-storage",level="error"}[5m])) > 6.5
+      or
+      sum by (kube_app) (rate(container_messages_total{kube_app=~"jobserver-io",level="error"}[5m])) > 8
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "{{ `{{ $labels.kube_app `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kube_app `}} }}.md"
+      summary: "{{ `{{ $labels.kube_app `}} }} Containers are experiencing high error log rate"
+- name: PodHealth
+  rules:
+  - alert: "Containers Restarting {{ $.Values.server.env_name}}"
+    expr: service:kube_pod_container_status_restarting_count > 0 and service:kube_pod_restart_container_status_running == 0
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.service `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.service `}} }}.md"
+      summary: "{{ `{{ $labels.service `}} }} Containers are restarting repeatedly"
+  - alert: "Containers Restarting {{ $.Values.server.env_name}}"
+    expr: service:kube_pod_container_status_restarting_count > 0 and service:kube_pod_restart_container_status_running == 0
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "{{ `{{ $labels.service `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.service `}} }}.md"
+      summary: "{{ `{{ $labels.service `}} }} Containers are restarting repeatedly"
+- name: Latency
+  rules:
+  - alert: "Latency Exceeded {{ $.Values.server.env_name}}"
+    expr: >
+      (
+        service:nginx_ingress_controller_request_latency_exceeded_99th > 0
+        or
+        service:nginx_ingress_controller_request_latency_exceeded_98th > 0
+        or
+        service:nginx_ingress_controller_request_latency_exceeded_90th > 0
+        or
+        service:nginx_ingress_controller_request_latency_exceeded_75th > 0
+      )
+      and
+        service:kube_deployment_count == 1
+      and on (service)
+        min by (service, harness_io_color) (label_replace(win_aspnet_app_Compilations_Total, "service", "$1", "app", "(.*)")) > 140
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.service `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.service `}} }}.md"
+      summary: "{{ `{{ $labels.service `}} }} Latency exceeded 5s while req/s over 20"
+  - alert: "Latency Exceeded {{ $.Values.server.env_name}}"
+    expr: >
+      (
+        service:nginx_ingress_controller_request_latency_exceeded_99th > 0
+        or
+        service:nginx_ingress_controller_request_latency_exceeded_98th > 0
+        or
+        service:nginx_ingress_controller_request_latency_exceeded_90th > 0
+        or
+        service:nginx_ingress_controller_request_latency_exceeded_75th > 0
+      )
+      and
+        service:kube_deployment_count == 1
+      and on (service)
+        min by (service, harness_io_color) (label_replace(win_aspnet_app_Compilations_Total, "service", "$1", "app", "(.*)")) > 140
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "{{ `{{ $labels.service `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.service `}} }}.md"
+      summary: "{{ `{{ $labels.service `}} }} Latency exceeded 5s while req/s over 20"
+- name: Container Availability
+  rules:
+  - alert: "Container Availability {{ $.Values.server.env_name}}"
+    expr: service:container_availability_deviations
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.service `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.service `}} }}.md"
+      summary: "{{ `{{ $labels.service `}} }} Container Availability has deviated"
+  - alert: "Container Availability {{ $.Values.server.env_name}}"
+    expr: service:container_availability_deviations{service!="monolith-valuation"}
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "{{ `{{ $labels.service `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.service `}} }}.md"
+      summary: "{{ `{{ $labels.service `}} }} Container Availability has deviated"
+- name: Internal Latency SLA Breach
+  rules:
+  - alert: "Internal Latency SLA Breach {{ $.Values.server.env_name}}"
+    expr: >
+      avg_over_time(service:http_request_duration_seconds_bucket:99th:5m[60m]) > 3
+      or
+      avg_over_time(service:http_request_duration_seconds_bucket:98th:5m[60m]) > 3
+    for: 3m
+    labels:
+      alert_type: slack_testing
+      priority: P1
+      service: "{{ `{{ $labels.kubernetes_name `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kubernetes_name `}} }}.md"
+      summary: "{{ `{{ $labels.kubernetes_name `}} }} Internal Latency has breached SLA"
+- name: Service Specific Alerts
+  rules:
+  - alert: "DOCUMENTS_OUTSTANDING {{ $.Values.server.env_name}}"
+    expr: sum(docusign_outstanding_documents_total{kubernetes_name="microservice-docusign"}) > 8
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.kubernetes_name `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kubernetes_name `}} }}.md"
+      summary: "{{ `{{ $labels.kubernetes_name `}} }} Outstanding documents"
+  - alert: "TRANSACTIONS_FILE_PROCESSING_FAILURES {{ $.Values.server.env_name}}"
+    expr: sum(irate(transactions_file_processing_attempt_failures_total{kubernetes_name="microservice-simpleadviceaegon"}[7d])) > 10
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.kubernetes_name `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kubernetes_name `}} }}.md"
+      summary: "{{ `{{ $labels.kubernetes_name `}} }} Failures processing File transactions"
+  - alert: "FEES_FILE_PROCESSING_FAILURES {{ $.Values.server.env_name}}"
+    expr: sum(irate(fees_file_processing_attempt_failures_total{kubernetes_name="microservice-simpleadviceaegon"}[7d])) > 10
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.kubernetes_name `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kubernetes_name `}} }}.md"
+      summary: "{{ `{{ $labels.kubernetes_name `}} }} Failures processing Fees File"
+  - alert: "PLAN_CREATION_FAILURES {{ $.Values.server.env_name}}"
+    expr: sum(plan_creation_failures_total{kubernetes_name="microservice-simpleadviceaegon"}) > 1
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.kubernetes_name `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kubernetes_name `}} }}.md"
+      summary: "{{ `{{ $labels.kubernetes_name `}} }} Total plan creation Failures"
+  - alert: "FAILED_JOBS {{ $.Values.server.env_name}}"
+    expr: sum(microservice_expectation_system_failed_total) by (identifier) > 100
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "{{ `{{ $labels.kubernetes_name `}} }}-{{ $.Values.server.alert_suffix }}"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/{{ `{{ $labels.kubernetes_name `}} }}.md"
+      summary: "{{ `{{ $labels.kubernetes_name `}} }} Failed Expectation Jobs"

@@ -1,0 +1,164 @@
+groups:
+- name: custom_rules
+  rules:
+  # MSSSQL
+  - record: instance:windows_cpu_time_total
+    expr: (100 - (avg by (ec2_tag_Name) (irate(windows_cpu_time_total{mode="idle"}[1m])) * 100))
+  # nginx ingress histograms
+  - record: service:nginx_ingress_controller_response_duration_seconds:99th:5m
+    expr: histogram_quantile(0.99, sum(rate(nginx_ingress_controller_response_duration_seconds_bucket[5m])) by (le, service))
+  - record: service:nginx_ingress_controller_response_duration_seconds:98th:5m
+    expr: histogram_quantile(0.98, sum(rate(nginx_ingress_controller_response_duration_seconds_bucket[5m])) by (le, service))
+  - record: service:nginx_ingress_controller_response_duration_seconds:90th:5m
+    expr: histogram_quantile(0.90, sum(rate(nginx_ingress_controller_response_duration_seconds_bucket[5m])) by (le, service))
+  - record: service:nginx_ingress_controller_response_duration_seconds:75th:5m
+    expr: histogram_quantile(0.75, sum(rate(nginx_ingress_controller_response_duration_seconds_bucket[5m])) by (le, service))
+  # controller ingress histograms
+  - record: service:http_request_duration_seconds_bucket:99th:5m
+    expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, kubernetes_name))
+  - record: service:http_request_duration_seconds_bucket:90th:5m
+    expr: histogram_quantile(0.90, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, kubernetes_name))
+  - record: service:http_request_duration_seconds_bucket:75th:5m
+    expr: histogram_quantile(0.75, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, kubernetes_name))
+  # container availability
+  - record: service:container_availability_deviations
+    expr: >
+      (
+          sum by (service, harness_io_color, deployment) (kube_deployment_status_replicas_available{namespace="intelligent-office"})
+          <
+          sum by (service, harness_io_color, deployment) (kube_deployment_spec_replicas{namespace="intelligent-office"})
+      )
+      and
+      count by (service, harness_io_color, deployment) (increase(prober_probe_total{ namespace="intelligent-office", result="failed"}[5m]) > 0)
+      and
+      (sum by (service, harness_io_color, deployment) (kube_deployment_status_replicas{namespace="intelligent-office"}) == sum by (service, harness_io_color, deployment) (kube_deployment_spec_replicas{namespace="intelligent-office"}))
+      and
+      (sum by (service, harness_io_color, deployment) (kube_deployment_spec_replicas{namespace="intelligent-office"}) > 0)
+      and on(service)
+      sum by (service) (kube_cronjob_status_active{cronjob=~".*-restart-pods",namespace="intelligent-office"}) == 0
+  # Container Log history Metrics
+  - record: service:container_messages_total:rate5m:sum
+    expr: sum by (level, kube_app) (rate(container_messages_total[5m]))
+  - record: service:container_messages_total:lowest:1w
+    expr: >
+      sum by (level, kube_app) (rate(container_messages_total[5m])) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+      or
+      sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+  - record: service:container_messages_total:lowest:2w
+    expr: >
+      (
+        sum by (level, kube_app) (rate(container_messages_total[5m])) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+        or
+        sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+      ) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 2w))
+      or
+      sum by (level, kube_app) (rate(container_messages_total[5m] offset 2w))
+  - record: service:container_messages_total:lowest:3w
+    expr: >
+      (
+        (
+          sum by (level, kube_app) (rate(container_messages_total[5m])) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+          or
+          sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+        ) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 2w))
+        or
+        sum by (level, kube_app) (rate(container_messages_total[5m] offset 2w))
+      ) < sum by (leve, kube_appl) (rate(container_messages_total[5m] offset 3w))
+      or sum by (level, kube_app) (rate(container_messages_total[5m] offset 3w))
+  - record: service:container_messages_total:lowest:4w
+    expr: >
+      (
+        (
+          (
+            sum by (level, kube_app) (rate(container_messages_total[5m])) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+            or
+            sum by (level, kube_app) (rate(container_messages_total[5m] offset 1w))
+          ) < sum by (level, kube_app) (rate(container_messages_total[5m] offset 2w))
+          or
+          sum by (level, kube_app) (rate(container_messages_total[5m] offset 2w))
+        ) < sum by (leve, kube_appl) (rate(container_messages_total[5m] offset 3w))
+        or sum by (level, kube_app) (rate(container_messages_total[5m] offset 3w))
+      )  < sum by (level, kube_app) (rate(container_messages_total[5m] offset 4w))
+      or sum by (level, kube_app) (rate(container_messages_total[5m] offset 4w))
+    # Kube deployment metrics
+  - record: service:kube_deployment_status_replicas_available_sum
+    expr: sum by(service, color) (label_replace(label_replace(kube_deployment_status_replicas_available{deployment=~".*-deployment-.*",namespace="intelligent-office"}, "color", "$1", "deployment", ".*-deployment-(blue|green).*"), "service", "$1", "deployment", "(.*)-deployment-.*"))
+  - record: service:kube_deployment_status_replicas_unavailable_sum
+    expr: sum by(service, color) (label_replace(label_replace(kube_deployment_status_replicas_unavailable{deployment=~".*-deployment-.*",namespace="intelligent-office"}, "color", "$1", "deployment", ".*-deployment-(blue|green).*"), "service", "$1", "deployment", "(.*)-deployment-.*"))
+  - record: service:kube_deployment_spec_replicas_sum
+    expr: sum by(service, color) (label_replace(label_replace(kube_deployment_spec_replicas{deployment=~".*-deployment-.*",namespace="intelligent-office"}, "color", "$1", "deployment", ".*-deployment-(blue|green).*"), "service", "$1", "deployment", "(.*)-deployment-.*"))
+  - record: service:kube_deployment_status_unavailable_count
+    expr: count by (service) (service:kube_deployment_status_replicas_unavailable_sum >= service:kube_deployment_spec_replicas_sum and service:kube_deployment_spec_replicas_sum > 0)
+  - record: service:kube_deployment_count
+    expr: count by (service) (service:kube_deployment_spec_replicas_sum > 0)
+  - record: service:kube_deployment_status_replicas_unavailable
+    expr: sum by (service) (label_replace(kube_deployment_status_replicas_unavailable{deployment=~".*-deployment-.*",namespace="intelligent-office"}, "service", "$1", "deployment", "(.*)-deployment-.*"))
+  - record: service:kube_pod_restart_container_status_running
+    expr: sum by(service) (label_replace(kube_cronjob_status_active{cronjob=~".*-restart-pods",namespace="intelligent-office"}, "service", "$1", "cronjob", "(.*)-restart-pods"))
+  - record: service:kube_pods_lost
+    expr: (service:kube_deployment_count == 1 or service:kube_deployment_count == service:kube_deployment_status_unavailable_count) and service:kube_deployment_status_replicas_unavailable > 0 and service:kube_pod_restart_container_status_running == 0
+  - record: service:kube_pod_container_status_waiting_reason_sum
+    expr: sum by (service, color) (label_replace(label_replace(kube_pod_container_status_waiting_reason{namespace="intelligent-office",reason=~"ErrImagePull|CrashLoopBackOff", pod=~".*-deployment-.*"}, "color", "$1", "pod", ".*-deployment-(blue|green).*"), "service", "$1", "pod", "(.*)-deployment-.*"))
+  - record: service:kube_pod_container_status_restarts_increase5m_sum
+    expr: sum by (service, color) (label_replace(label_replace(increase(kube_pod_container_status_restarts_total{namespace="intelligent-office", pod=~".*-deployment-.*"}[5m]), "color", "$1", "pod", ".*-deployment-(blue|green).*"), "service", "$1", "pod", "(.*)-deployment-.*"))
+  - record: service:kube_pod_container_status_restarting
+    expr: (service:kube_pod_container_status_waiting_reason_sum > 0 or service:kube_pod_container_status_restarts_increase5m_sum > 0)
+  - record: service:kube_pod_container_status_restarting_count
+    expr: count by (service) (service:kube_pod_container_status_restarting)
+  - record: service:prober_probe_total
+    expr: count by (service, probe_type) (sum by (container, probe_type, result, service, pod) (label_replace(rate(prober_probe_total{result="failed", namespace="intelligent-office"}[5m]), "service", "$1", "pod", "(.*)(?:-deployment-.*)")) > 0)
+  - record: service:prober_probe_total:not_deployment
+    expr: service:prober_probe_total and on(service) service:kube_deployment_count == 1
+  # Container resource metrics
+  - record: service:container_messages_total:rate:5m:sum
+    expr: sum by (kube_app, level) (rate(container_messages_total[5m]))
+  - record: service:container_memory_working_set_bytes_sum
+    expr: sum(label_replace(container_memory_working_set_bytes{container!="POD",container!="",pod=~".*-deployment-.*",namespace="intelligent-office"}, "Service", "$1", "pod", "(.*)(?:-deployment-.*)")) by (Service,container)/ on(Service) group_left max(label_replace(kube_deployment_status_replicas_available{namespace="intelligent-office", deployment=~".*-deployment-.*"}, "Service", "$1", "deployment", "(.*)(?:-deployment-.*)")) by(Service)
+  - record: service:container_cpu_usage_seconds_total_sum_rate
+    expr: sum(label_replace(rate(container_cpu_usage_seconds_total{container!="POD",container!="",namespace="intelligent-office"}[5m]), "Service", "$1", "pod", "(.*)(?:-deployment-.*)")) by (Service,Container)/on(Service) group_left max(label_replace(kube_deployment_status_replicas_available{namespace="intelligent-office", deployment=~".*-deployment-.*"}, "Service", "$1", "deployment", "(.*)(?:-deployment-.*)")) by(Service)
+  - record: service:http_requests_received_total:rate5m
+    expr: sum by (kubernetes_name, code) (rate(http_requests_received_total[5m]))
+  # nginx ingress
+  - record: service:nginx_ingress_controller_request_latency_exceeded_99th
+    expr: count by (service) (service:nginx_ingress_controller_response_duration_seconds:99th:5m > 3) and count by (service) (service:nginx_ingress_controller_request:rate5m > 20)
+  - record: service:nginx_ingress_controller_request_latency_exceeded_98th
+    expr: count by (service) (service:nginx_ingress_controller_response_duration_seconds:98th:5m > 2.5) and count by (service) (service:nginx_ingress_controller_request:rate5m > 20)
+  - record: service:nginx_ingress_controller_request_latency_exceeded_90th
+    expr: count by (service) (service:nginx_ingress_controller_response_duration_seconds:90th:5m > 1) and count by (service) (service:nginx_ingress_controller_request:rate5m > 20)
+  - record: service:nginx_ingress_controller_request_latency_exceeded_75th
+    expr: count by (service) (service:nginx_ingress_controller_response_duration_seconds:75th:5m > 0.7) and count by (service) (service:nginx_ingress_controller_request:rate5m > 20)
+  - record: service:nginx_ingress_controller_request_duration_seconds_avg:sum:rate
+    expr: sum by (service) (rate(nginx_ingress_controller_request_duration_seconds_sum[5m]))/sum by (service) (rate(nginx_ingress_controller_request_duration_seconds_count[5m]))
+  - record: service:nginx_ingress_controller_request:rate5m
+    expr: sum by (service, status) (rate(nginx_ingress_controller_requests[5m]))
+  - record: service:nginx_ingress_controller_request:rate5m:avg_over_time_1w
+    expr: avg_over_time(service:nginx_ingress_controller_request:rate5m[1w])
+  - record: service:nginx_ingress_controller_request:rate5m:stddev_over_time_1w
+    expr: stddev_over_time(service:nginx_ingress_controller_request:rate5m[1w])
+  - record: service:nginx_ingress_controller_request:rate5m:stddevot
+    expr: stddev_over_time(service:nginx_ingress_controller_request:rate5m[1h])
+  - record: service:nginx_ingress_controller_request:rate5m:avgot
+    expr: avg_over_time(service:nginx_ingress_controller_request:rate5m[1h])
+  - record: service:nginx_ingress_controller_request:rate5m:stdvarot
+    expr: stdvar_over_time(service:nginx_ingress_controller_request:rate5m[1h])
+  - record: service:nginx_ingress_controller_request:rate5m:maxot
+    expr: max_over_time(service:nginx_ingress_controller_request:rate5m[1h])
+  - record: service:nginx_ingress_controller_request:rate5m_3wprediction
+    expr: >
+      quantile(0.5,
+        label_replace(
+          avg_over_time(service:nginx_ingress_controller_request:rate5m[4h] offset 166h)
+          + service:nginx_ingress_controller_request:rate5m:avg_over_time_1w - service:nginx_ingress_controller_request:rate5m:avg_over_time_1w offset 1w
+          , "offset", "1w", "", "")
+        or
+        label_replace(
+          avg_over_time(service:nginx_ingress_controller_request:rate5m[4h] offset 334h)
+          + service:nginx_ingress_controller_request:rate5m:avg_over_time_1w - service:nginx_ingress_controller_request:rate5m:avg_over_time_1w offset 2w
+          , "offset", "2w", "", "")
+        or
+        label_replace(
+          avg_over_time(service:nginx_ingress_controller_request:rate5m[4h] offset 502h)
+          + service:nginx_ingress_controller_request:rate5m:avg_over_time_1w - service:nginx_ingress_controller_request:rate5m:avg_over_time_1w offset 3w
+          , "offset", "3w", "", "")
+      )
+      without (offset)

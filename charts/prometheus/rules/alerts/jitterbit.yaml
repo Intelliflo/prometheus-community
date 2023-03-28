@@ -1,0 +1,91 @@
+groups:
+- name: JitterBit
+  rules:
+  - alert: "JitterBit CPU usage SHS-GB"
+    expr: (100 - (avg by (ec2_tag_Name) (irate(node_cpu_seconds_total{mode="idle",job="JitterBit"}[3m])) * 100)) > 45
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high CPU usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit CPU usage SHS-GB"
+    expr: (100 - (avg by (ec2_tag_Name) (irate(node_cpu_seconds_total{mode="idle",job="JitterBit"}[3m])) * 100)) > 45
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high CPU usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit Memory usage SHS-GB"
+    expr: (node_memory_MemTotal_bytes{job="JitterBit"} - node_memory_MemFree_bytes{job="JitterBit"} - (node_memory_Cached_bytes{job="JitterBit"} + node_memory_Buffers_bytes{job="JitterBit"})) / (node_memory_MemTotal_bytes{job="JitterBit"}) * 100 > 95
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high memory usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit Memory usage SHS-GB"
+    expr: (node_memory_MemTotal_bytes{job="JitterBit"} - node_memory_MemFree_bytes{job="JitterBit"} - (node_memory_Cached_bytes{job="JitterBit"} + node_memory_Buffers_bytes{job="JitterBit"})) / (node_memory_MemTotal_bytes{job="JitterBit"}) * 100 > 95
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high memory usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit disk usage SHS-GB"
+    expr: 100 - ((node_filesystem_avail_bytes{job="JitterBit",device!~'rootfs'} * 100) / node_filesystem_size_bytes{job="JitterBit",device!~'rootfs'}) > 20
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high disk usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit disk usage SHS-GB"
+    expr: 100 - ((node_filesystem_avail_bytes{job="JitterBit",device!~'rootfs'} * 100) / node_filesystem_size_bytes{job="JitterBit",device!~'rootfs'}) > 20
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high disk usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit disk IO usage SHS-GB"
+    expr: irate(node_disk_reads_completed_total{job="JitterBit"}[5m]) + irate(node_disk_writes_completed_total{job="JitterBit"}[5m]) > 500
+    for: 3m
+    labels:
+      alert_type: slack
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high disk IO usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
+  - alert: "JitterBit disk IO usage SHS-GB"
+    expr: irate(node_disk_reads_completed_total{job="JitterBit"}[5m]) + irate(node_disk_writes_completed_total{job="JitterBit"}[5m]) > 500
+    for: 5m
+    labels:
+      alert_type: pager_duty
+      priority: P1
+      service: "JitterBit-shs-gb"
+      severity: P1
+    annotations:
+      runBook: "https://github.com/Intelliflo/sre/blob/master/runbooks/jitterbit-agent.md"
+      summary: "JitterBit is experiencing high disk IO usage. Server: {{ `{{ $labels.ec2_tag_Name `}} }}"
